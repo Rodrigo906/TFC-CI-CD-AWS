@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  app-aws
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  LabRole:
+    Type: String
+    Default: arn:aws:iam::693613080992:role/LabRole
+
+Globals:
+  Api:
+    EndpointConfiguration: REGIONAL
+    Cors: "'*'"
+
+Resources:
+ # Definicion de API Gateway
+  ApiGateway:
+        Type: AWS::Serverless::Api
+        Properties:
+          DefinitionBody:
+            paths:
+              /users:
+                get:
+                  x-amazon-apigateway-integration:
+                    httpMethod: POST
+                    type: aws_proxy
+                    uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${findAllFunction.Arn}/invocations
+                    credentials: !Ref LabRole
+                post:
+                  x-amazon-apigateway-integration:
+                    httpMethod: POST
+                    type: aws_proxy
+                    uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${saveFunction.Arn}/invocations
+                    credentials: !Ref LabRole
+              /users/{id}:
+                get:
+                  x-amazon-apigateway-integration:
+                    httpMethod: POST
+                    type: aws_proxy
+                    uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${findByIdFunction.Arn}/invocations
+                    credentials: !Ref LabRole
+                put:
+                  x-amazon-apigateway-integration:
+                    httpMethod: POST
+                    type: aws_proxy
+                    uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${updateFunction.Arn}/invocations
+                    credentials: !Ref LabRole
+                delete:
+                  x-amazon-apigateway-integration:
+                    httpMethod: POST
+                    type: aws_proxy
+                    uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${deleteFunction.Arn}/invocations
+                    credentials: !Ref LabRole
+            schemes:
+              - https
+            swagger: "2.0"
+          Name: ApiGateway
+          StageName: dev
+          Auth:
+            DefaultAuthorizer: MyCognitoAuth
+            Authorizers:
+              MyCognitoAuth:
+                UserPoolArn: arn:aws:cognito-idp:us-west-2:693613080992:userpool/us-west-2_0OyLblHRc
+                Identity:
+                  Header: access-token
+  
+  updateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/update.handler
+      Role: !Ref LabRole
+      Runtime: nodejs14.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      AutoPublishAlias: live
+      DeploymentPreference:
+          Enabled: true
+          Role: !Ref LabRole
+          Type: Linear10PercentEvery1Minute
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref tableUsers
+      Environment:
+        Variables:
+          TABLE_USERS: !Ref tableUsers
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /{id}
+            Method: PUT
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: !Ref MyCognitoAuth
+
+  saveFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: src/handlers/save.handler
+        Role: !Ref LabRole
+        Runtime: nodejs14.x
+        Architectures:
+          - x86_64
+        MemorySize: 128
+        Timeout: 100
+        AutoPublishAlias: live
+        DeploymentPreference:
+            Enabled: true
+            Role: !Ref LabRole
+            Type: Linear10PercentEvery1Minute
+        Policies:
+          - DynamoDBCrudPolicy:
+              TableName: !Ref tableUsers
+        Environment:
+          Variables:
+            TABLE_USERS: !Ref tableUsers
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              Path: /
+              Method: POST
+              RestApiId: !Ref ApiGateway
+              Auth:
+                Authorizer: !Ref MyCognitoAuth
+  
+  deleteFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: src/handlers/delete.handler
+        Role: !Ref LabRole
+        Runtime: nodejs14.x
+        Architectures:
+          - x86_64
+        MemorySize: 128
+        Timeout: 100
+        AutoPublishAlias: live
+        DeploymentPreference:
+            Enabled: true
+            Role: !Ref LabRole
+            Type: Linear10PercentEvery1Minute
+        Policies:
+          - DynamoDBCrudPolicy:
+              TableName: !Ref tableUsers
+        Environment:
+          Variables:
+            TABLE_USERS: !Ref tableUsers
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              Path: /{id}
+              Method: DELETE
+              RestApiId: !Ref ApiGateway
+              Auth:
+                Authorizer: !Ref MyCognitoAuth
+  
+  findAllFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: src/handlers/find-all.handler
+        Role: !Ref LabRole
+        Runtime: nodejs14.x
+        Architectures:
+          - x86_64
+        MemorySize: 128
+        Timeout: 100
+        AutoPublishAlias: live
+        DeploymentPreference:
+            Enabled: true
+            Role: !Ref LabRole
+            Type: Linear10PercentEvery1Minute
+        Policies:
+          - DynamoDBCrudPolicy:
+              TableName: !Ref tableUsers
+        Environment:
+          Variables:
+            TABLE_USERS: !Ref tableUsers
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              Path: /
+              Method: GET
+              RestApiId: !Ref ApiGateway
+              Auth:
+                Authorizer: !Ref MyCognitoAuth
+
+  findByIdFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: src/handlers/find-by-id.handler
+        Role: !Ref LabRole
+        Runtime: nodejs14.x
+        Architectures:
+          - x86_64
+        MemorySize: 128
+        Timeout: 100
+        AutoPublishAlias: live
+        DeploymentPreference:
+            Enabled: true
+            Role: !Ref LabRole
+            Type: Linear10PercentEvery1Minute
+        Policies:
+          - DynamoDBCrudPolicy:
+              TableName: !Ref tableUsers
+        Environment:
+          Variables:
+            TABLE_USERS: !Ref tableUsers
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              Path: /{id}
+              Method: GET
+              RestApiId: !Ref ApiGateway
+              Auth:
+                Authorizer: !Ref MyCognitoAuth
+
+  # Tabla de usuarios
+  tableUsers:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2

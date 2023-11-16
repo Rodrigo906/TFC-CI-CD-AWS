@@ -1,0 +1,31 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - npm install
+  pre_build:
+    commands:
+      - echo Iniciando tests
+      - npm run test
+      # Elimina los test
+      - rm -rf ./__tests__
+      # Elimina todas las dependencias que no sean necesarias para el paquete de implementación de Lambda
+      - npm prune --production
+      
+      # Configuracion de SonarQube
+      - sonar_host_url="<URL-SERVIDOR-SONAR>"
+      - sonar_proyect_key="<NOMBRE-PROYECTO-SONAR>"
+      - sonar_username="<USUARIO>"
+      - sonar_password="<CONTRASEÑA>"
+      - git checkout $SOURCE_COMMIT
+
+      - echo Tests terminados
+  build:
+    commands:
+      - echo Iniciando compilacion
+      - sam build
+      - sam package --output-template-file packaged.yaml --s3-bucket app-bucket-tesis
+      - sam deploy --template-file packaged.yaml --stack-name sam-app --capabilities CAPABILITY_IAM --region us-west-2
+  post_build:
+    commands:
+      - echo Implementacion completada
